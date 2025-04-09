@@ -48,13 +48,16 @@ TagManager:
   - name: 2Cloud
     uniqueID: 644125403
     locked: 0
-  - name: 3Background
+  - name: 3Cloud2
+    uniqueID: 211698343
+    locked: 0
+  - name: 4Background
     uniqueID: 579468217
     locked: 0
   - name: Player
     uniqueID: 3534386187
     locked: 0
-  - name: 4Foreground
+  - name: 5Foreground
     uniqueID: 2935678073
     locked: 0
   m_RenderingLayers:

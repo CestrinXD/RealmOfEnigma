@@ -1,12 +1,13 @@
+using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 
 public class Player : MonoBehaviour
 {
     public float moveSpeed = 5f;
     public float jumpForce = 7f;
-    
+
     private Rigidbody2D rb;
-    public bool isGrounded= false;
     private Animator animator;
     private SpriteRenderer spriteRenderer;
     public Transform groundCheck; // Assign di Unity Editor
@@ -20,7 +21,22 @@ public class Player : MonoBehaviour
     private bool isTapAttack = false;
     public float attackDuration = 0.2f; // Durasi serangan saat ditekan sekali
     public float attackHoldDuration = 0.5f;
+    public int jumpCount = 1;
+    private int maxJumps = 2;
+    public bool isJumpPressed;
+    public bool isJumping = false;
+    public bool isGrounded = false;
 
+
+    public string currentAnimaton;
+
+    const string PLAYER_IDLE = "Player_idle";
+    const string PLAYER_RUN = "Player_run";
+    const string PLAYER_JUMP = "Player_jump";
+    const string PLAYER_ATTACK = "Player_attack";
+    const string PLAYER_AIR_ATTACK = "Player_air_attack";
+    const string PLAYER_RUN_ATTACK = "Player_run_attack";
+    const string PLAYER_FALLING = "Player_fall";
 
 
     void Start()
@@ -28,84 +44,105 @@ public class Player : MonoBehaviour
         rb = GetComponent<Rigidbody2D>();
         animator = GetComponent<Animator>(); // Ambil komponen Animator
         spriteRenderer = GetComponent<SpriteRenderer>();
-
     }
+
 
     void Update()
     {
         horizontalInput = Input.GetAxis("Horizontal");
-        //if (Input.GetKey(KeyCode.D) ) // Cegah gerakan hanya ke kanan jika menyentuh dinding kanan
-        //{
-        //    moveInput = 1f;
-        //    spriteRenderer.flipX = false;
-        //}
-        //else if (Input.GetKey(KeyCode.A)) // Cegah gerakan hanya ke kiri jika menyentuh dinding kiri
-        //{
-        //    moveInput = -1f;
-        //    spriteRenderer.flipX = true;
-        //}
-        
-        
+
         FlipSprite();
-
         isGrounded = Physics2D.Raycast(groundCheck.position, Vector2.down, 0.6f, LayerMask.GetMask("Ground"));
-       
 
-        // Lompat jika tombol space ditekan dan karakter di tanah
-        if ((Input.GetKeyDown(KeyCode.Space) || Input.GetKeyDown(KeyCode.W)) && isGrounded)
+        if (isGrounded)
         {
+            jumpCount = 1;
+            isJumping = false; // Matikan flag lompat saat menyentuh tanah
+//            isJumpPressed =false;
+
+        }
+
+        if (Input.GetKeyDown(KeyCode.Space) && jumpCount < maxJumps)
+        {
+            isJumpPressed = true;
+            isJumping = true; // Set flag lompat
             rb.linearVelocity = new Vector2(rb.linearVelocity.x, jumpForce);
-            animator.SetBool("IsJumping", true);
+            jumpCount++;
 
-
-        }
-        if (Input.GetKeyDown(KeyCode.J)) // Jika tombol ditekan sekali
-        {
-            isAttacking = true;
-            animator.SetBool("IsAttack", true);
-            attackTimer = attackDuration; // Timer untuk attack sekali
-            Debug.Log("1 attack");
-            isTapAttack = true;
-
+             // Set animasi jump langsung saat tombol ditekan
+            // ChangeAnimationState(PLAYER_JUMP, true);
+            animator.Play(PLAYER_JUMP, 0, 0.0f);
+            // animator.speed = 0;
+            // return;
+            // Debug.Log("jump");
         }
 
-        if (Input.GetKey(KeyCode.J) && !isTapAttack) // Jika tombol terus ditekan
-        {
-            Debug.Log("hold attack");
+        // // === Attack logic tetap seperti sebelumnya ===
+        // if (Input.GetKeyDown(KeyCode.J))
+        // {
+        //     isAttacking = true;
+        //     animator.SetBool("IsAttack", true);
+        //     attackTimer = attackDuration;
+        //     isTapAttack = true;
+        // }
 
-            attackTimer = attackHoldDuration; // Reset timer agar animasi bertahan lebih lama
-        }
+        // if (Input.GetKey(KeyCode.J) && !isTapAttack)
+        // {
+        //     attackTimer = attackHoldDuration;
+        // }
 
-        if (isAttacking)
+        // if (isAttacking)
         {
             if (attackTimer > 0)
             {
                 attackTimer -= Time.deltaTime;
             }
-            //attackTimer -= Time.deltaTime;
-            //Debug.Log(attackTimer);
             else
             {
                 isAttacking = false;
                 animator.SetBool("IsAttack", false);
+                isTapAttack = false; // Reset agar bisa deteksi hold lagi
             }
         }
     }
+
     private void FixedUpdate()
     {
         rb.linearVelocity = new Vector2(horizontalInput * moveSpeed, rb.linearVelocity.y);
-        if (horizontalInput >= 0.1f || horizontalInput <= -0.1f)
-        {
-            animator.SetBool("IsRunning", true);
-        }
-        else
-        {
-            animator.SetBool("IsRunning", false);
-        }
-      
-        //animator.SetFloat("xVelocity", Mathf.Abs(rb.linearVelocity.x)); // Menggunakan absolut agar tidak negatif
-        //animator.SetFloat("yVelocity", rb.linearVelocity.y);
 
+        // Prioritaskan animasi jump selama sedang melompat
+        if (isJumping || isJumpPressed)
+        {
+            // Jika masih di udara, tetap animasi lompat
+            if (!isGrounded)
+            {
+                ChangeAnimationState(PLAYER_JUMP);
+                return;
+            }
+            else if (isGrounded && Mathf.Abs(rb.linearVelocity.y) < 0.1f) // sudah benar-benar mendarat
+            {
+                isJumping = false; // Selesai lompat
+                isJumpPressed = false;
+            }
+        }
+
+        // Urutan setelah selesai lompat:
+        if ((horizontalInput >= 0.1f || horizontalInput <= -0.1f) && isGrounded && isJumping == false)
+        {
+            ChangeAnimationState(PLAYER_RUN);
+        }
+        else if (isGrounded && isJumping == false && isJumpPressed == false)
+        {
+            ChangeAnimationState(PLAYER_IDLE);
+        }
+
+        // Debug.Log(rb.linearVelocity.y);
+        //player fall animation
+        if(!isJumping && !isJumpPressed && !isGrounded && rb.linearVelocity.y < 0.1f)
+        {
+
+            ChangeAnimationState(PLAYER_FALLING);
+        }
     }
 
     void FlipSprite()
@@ -123,15 +160,21 @@ public class Player : MonoBehaviour
         }
     }
 
-
-    void Attack()
+    void ChangeAnimationState(string newAnimation, bool forcePlay = false)
     {
-        isAttacking = true;
-        animator.SetBool("IsAttack", true);
+        if (!forcePlay && currentAnimaton == newAnimation) return;
 
-        // Mematikan animasi setelah durasi tertentu
-        Invoke("ResetAttack", attackDuration);
+        animator.Play(newAnimation);
+        currentAnimaton = newAnimation;
     }
+    // void Attack()
+    // {
+    //     isAttacking = true;
+    //     animator.SetBool("IsAttack", true);
+
+    //     // Mematikan animasi setelah durasi tertentu
+    //     Invoke("ResetAttack", attackDuration);
+    // }
 
     void ResetAttack()
     {
@@ -139,22 +182,22 @@ public class Player : MonoBehaviour
         animator.SetBool("IsAttack", false);
     }
 
-    private void OnCollisionStay2D(Collision2D collision)
-    {
-        if (collision.gameObject.CompareTag("Ground"))
-        {
-            foreach (ContactPoint2D contact in collision.contacts)
-            {
-              
-                if (Mathf.Abs(contact.normal.x) > 0.5f) // Jika normal X lebih dari 0.5, berarti menyentuh dinding vertikal
-                {
-                    isTouchingWall = true;
-                    wallDirection = contact.normal.x > 0 ? -1 : 1; // 1 jika dinding di kanan, -1 jika di kiri
-                    return;
-                }
-            }
-        }
-    }
+    // private void OnCollisionStay2D(Collision2D collision)
+    // {
+    //     if (collision.gameObject.CompareTag("Ground"))
+    //     {
+    //         foreach (ContactPoint2D contact in collision.contacts)
+    //         {
+
+    //             if (Mathf.Abs(contact.normal.x) > 0.5f) // Jika normal X lebih dari 0.5, berarti menyentuh dinding vertikal
+    //             {
+    //                 isTouchingWall = true;
+    //                 wallDirection = contact.normal.x > 0 ? -1 : 1; // 1 jika dinding di kanan, -1 jika di kiri
+    //                 return;
+    //             }
+    //         }
+    //     }
+    // }
 
     private void OnCollisionExit2D(Collision2D collision)
     {
@@ -166,9 +209,9 @@ public class Player : MonoBehaviour
     }
 
 
-    private void OnTriggerEnter2D(Collider2D collision)
-    {
-        isGrounded = true; 
-        animator.SetBool("IsJumping", false);
-    }
+    // private void OnTriggerEnter2D(Collider2D collision)
+    // {
+    //     isGrounded = true;
+    //     animator.SetBool("IsJumping", false);
+    // }
 }

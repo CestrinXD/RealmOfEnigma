@@ -3,6 +3,8 @@ using UnityEngine;
 public class BackgroundController : MonoBehaviour
 {
     private float startPos, length;
+    private float startPosY, height;
+
     public GameObject cam;
     public float parallaxEffect;
 
@@ -10,25 +12,46 @@ public class BackgroundController : MonoBehaviour
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
     {
+        // startPos = transform.position.x;
+        // length = GetComponent<SpriteRenderer>().bounds.size.x;
         startPos = transform.position.x;
+        startPosY = transform.position.y;
         length = GetComponent<SpriteRenderer>().bounds.size.x;
+        height = GetComponent<SpriteRenderer>().bounds.size.y;
 
     }
 
     // Update is called once per frame
-    void FixedUpdate()
+    void LateUpdate()
+{
+    float distX = cam.transform.position.x * parallaxEffect;
+    float distY = cam.transform.position.y * parallaxEffect;
+
+    float moveX = cam.transform.position.x * (1 - parallaxEffect);
+    float moveY = cam.transform.position.y * (1 - parallaxEffect);
+
+    float newX = Mathf.Round((startPos + distX) * 100f) / 100f;
+    float newY = Mathf.Round((startPosY + distY) * 100f) / 100f;
+
+    transform.position = new Vector3(newX, newY, transform.position.z);
+
+    if (moveX > startPos + length)
     {
-        float distance = cam.transform.position.x * parallaxEffect; // 0 = move with || 1 = wont move || 0.5 = half
-        float movement = cam.transform.position.x * (1- parallaxEffect);
-
-        transform.position = new Vector3(startPos + distance, transform.position.y, transform.position.z);
-
-        if(movement > startPos + length){
-            startPos += length;
-        }else if(movement < startPos - length)
-        {
-            startPos -=length;
-        }
-
+        startPos += length;
     }
+    else if (moveX < startPos - length)
+    {
+        startPos -= length;
+    }
+
+    if (moveY > startPosY + height)
+    {
+        startPosY += height;
+    }
+    else if (moveY < startPosY - height)
+    {
+        startPosY -= height;
+    }
+}
+
 }

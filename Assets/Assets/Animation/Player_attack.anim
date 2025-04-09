@@ -6,7 +6,7 @@ AnimationClip:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_Name: attack
+  m_Name: Player_attack
   serializedVersion: 7
   m_Legacy: 0
   m_Compressed: 0
@@ -24,13 +24,13 @@ AnimationClip:
       value: {fileID: -533617146, guid: 2960e61daed91b14785e8e269f55266d, type: 3}
     - time: 0.1
       value: {fileID: 196266203, guid: 2960e61daed91b14785e8e269f55266d, type: 3}
-    - time: 0.21666667
+    - time: 0.23333333
       value: {fileID: 267849434, guid: 2960e61daed91b14785e8e269f55266d, type: 3}
-    - time: 0.31666666
+    - time: 0.33333334
       value: {fileID: -21650581, guid: 2960e61daed91b14785e8e269f55266d, type: 3}
     - time: 0.43333334
       value: {fileID: -2028068999, guid: 2960e61daed91b14785e8e269f55266d, type: 3}
-    - time: 0.53333336
+    - time: 0.51666665
       value: {fileID: -1338973758, guid: 2960e61daed91b14785e8e269f55266d, type: 3}
     - time: 0.65
       value: {fileID: -1501940840, guid: 2960e61daed91b14785e8e269f55266d, type: 3}
