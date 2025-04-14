@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.UI;
 
 public class Player : MonoBehaviour
 {
@@ -17,10 +18,8 @@ public class Player : MonoBehaviour
     public float horizontalInput;
     bool isFacingRight = false;
     private float attackTimer = 0f;
-    private bool isAttacking = false;
     private bool isTapAttack = false;
-    public float attackDuration = 0.2f; // Durasi serangan saat ditekan sekali
-    public float attackHoldDuration = 0.5f;
+
     public int jumpCount = 1;
     private int maxJumps = 2;
     public bool isJumpPressed;
@@ -38,12 +37,39 @@ public class Player : MonoBehaviour
     const string PLAYER_RUN_ATTACK = "Player_run_attack";
     const string PLAYER_FALLING = "Player_fall";
 
+    [Header("For Attack")]
+    public GameObject attackArea;
+    private bool isAttackQueued = false;
+    [SerializeField] private float attackCooldown = 0.9f; // waktu minimal antar spam
+
+    private float lastAttackTime = -999f;
+    int index_anim_attack = 1;
+    private bool isAttacking = false;
+    public float attackDuration = 0.2f; // Durasi serangan saat ditekan sekali
+    public float attackHoldDuration = 0.5f;
+    public float timeToAttack = 0.3f;
+
+    [Header("Stats")]
+    
+    public float maxHealth = 100f;
+    public float maxMana = 50;
+    public float maxStamina = 75;
+
+    private float currentHealth;
+    private float currentMana;
+    private float currentStamina;
+
+ 
 
     void Start()
     {
         rb = GetComponent<Rigidbody2D>();
         animator = GetComponent<Animator>(); // Ambil komponen Animator
         spriteRenderer = GetComponent<SpriteRenderer>();
+        // attackArea = transform.GetChild(1).gameObject;
+        attackArea.SetActive(false);
+
+        
     }
 
 
@@ -58,7 +84,7 @@ public class Player : MonoBehaviour
         {
             jumpCount = 1;
             isJumping = false; // Matikan flag lompat saat menyentuh tanah
-//            isJumpPressed =false;
+                               //            isJumpPressed =false;
 
         }
 
@@ -69,41 +95,72 @@ public class Player : MonoBehaviour
             rb.linearVelocity = new Vector2(rb.linearVelocity.x, jumpForce);
             jumpCount++;
 
-             // Set animasi jump langsung saat tombol ditekan
+            // Set animasi jump langsung saat tombol ditekan
             // ChangeAnimationState(PLAYER_JUMP, true);
             animator.Play(PLAYER_JUMP, 0, 0.0f);
-            // animator.speed = 0;
-            // return;
-            // Debug.Log("jump");
+
         }
 
-        // // === Attack logic tetap seperti sebelumnya ===
-        // if (Input.GetKeyDown(KeyCode.J))
-        // {
-        //     isAttacking = true;
-        //     animator.SetBool("IsAttack", true);
-        //     attackTimer = attackDuration;
-        //     isTapAttack = true;
-        // }
+     
 
-        // if (Input.GetKey(KeyCode.J) && !isTapAttack)
-        // {
-        //     attackTimer = attackHoldDuration;
-        // }
-
-        // if (isAttacking)
+        if (Input.GetKeyDown(KeyCode.J) && Time.time - lastAttackTime >= attackCooldown)
         {
-            if (attackTimer > 0)
+            StartCoroutine(HandleAttack());
+        }
+
+        
+
+    }
+    IEnumerator HandleAttack()
+    {
+        isAttackQueued = false;
+        isAttacking = true;
+
+        string baseAttackAnim = "";
+
+        if (!isGrounded)
+        {
+            baseAttackAnim = PLAYER_AIR_ATTACK;
+        }
+        else if (Mathf.Abs(horizontalInput) > 0.1f)
+        {
+            baseAttackAnim = PLAYER_RUN_ATTACK;
+        }
+        else
+        {
+            baseAttackAnim = PLAYER_ATTACK;
+        }
+
+        string nextAttackAnim = baseAttackAnim + "_" + index_anim_attack;
+
+        AnimatorStateInfo stateInfo = animator.GetCurrentAnimatorStateInfo(0);
+        attackArea.SetActive(true);
+
+        if (!stateInfo.IsName(nextAttackAnim))
+        {
+            ChangeAnimationState(nextAttackAnim, true);
+            yield return new WaitForSeconds(timeToAttack);
+            attackArea.SetActive(false); // Matikan area serangan
+
+            // Handle attack queue (combo)
+            if (isAttackQueued)
             {
-                attackTimer -= Time.deltaTime;
+                isAttackQueued = false;
+                index_anim_attack = (index_anim_attack % 2) + 1; // 1→2→1→2...
+                StartCoroutine(HandleAttack()); // Lanjut ke serangan berikutnya
             }
             else
             {
                 isAttacking = false;
-                animator.SetBool("IsAttack", false);
-                isTapAttack = false; // Reset agar bisa deteksi hold lagi
+                index_anim_attack = 1; // Reset ke serangan pertama
             }
         }
+        else{
+            isAttackQueued = true;
+
+        }
+        
+
     }
 
     private void FixedUpdate()
@@ -114,7 +171,7 @@ public class Player : MonoBehaviour
         if (isJumping || isJumpPressed)
         {
             // Jika masih di udara, tetap animasi lompat
-            if (!isGrounded)
+            if (!isGrounded && !isAttacking)
             {
                 ChangeAnimationState(PLAYER_JUMP);
                 return;
@@ -125,24 +182,29 @@ public class Player : MonoBehaviour
                 isJumpPressed = false;
             }
         }
-
-        // Urutan setelah selesai lompat:
-        if ((horizontalInput >= 0.1f || horizontalInput <= -0.1f) && isGrounded && isJumping == false)
+        if (!isAttacking && !isAttackQueued)
         {
-            ChangeAnimationState(PLAYER_RUN);
-        }
-        else if (isGrounded && isJumping == false && isJumpPressed == false)
-        {
-            ChangeAnimationState(PLAYER_IDLE);
+
+            // Urutan setelah selesai lompat:
+            if ((horizontalInput >= 0.1f || horizontalInput <= -0.1f) && isGrounded && isJumping == false)
+            {
+                ChangeAnimationState(PLAYER_RUN);
+            }
+            else if (isGrounded && !isJumping && !isJumpPressed && !isAttacking && !isAttackQueued)
+            {
+                ChangeAnimationState(PLAYER_IDLE);
+            }
         }
 
-        // Debug.Log(rb.linearVelocity.y);
+
         //player fall animation
-        if(!isJumping && !isJumpPressed && !isGrounded && rb.linearVelocity.y < 0.1f)
+        if (!isJumping && !isJumpPressed && !isGrounded && rb.linearVelocity.y < 0.1f)
         {
 
             ChangeAnimationState(PLAYER_FALLING);
         }
+
+
     }
 
     void FlipSprite()
@@ -167,51 +229,51 @@ public class Player : MonoBehaviour
         animator.Play(newAnimation);
         currentAnimaton = newAnimation;
     }
-    // void Attack()
+
+
+    // void ResetAttack()
     // {
-    //     isAttacking = true;
-    //     animator.SetBool("IsAttack", true);
+    //     attackArea.SetActive(false);
 
-    //     // Mematikan animasi setelah durasi tertentu
-    //     Invoke("ResetAttack", attackDuration);
-    // }
-
-    void ResetAttack()
-    {
-        isAttacking = false;
-        animator.SetBool("IsAttack", false);
-    }
-
-    // private void OnCollisionStay2D(Collision2D collision)
-    // {
-    //     if (collision.gameObject.CompareTag("Ground"))
+    //     if (isAttackQueued)
     //     {
-    //         foreach (ContactPoint2D contact in collision.contacts)
-    //         {
+    //         isAttackQueued = false;
+    //         index_anim_attack++;
+    //         if (index_anim_attack > 2) index_anim_attack = 1;
 
-    //             if (Mathf.Abs(contact.normal.x) > 0.5f) // Jika normal X lebih dari 0.5, berarti menyentuh dinding vertikal
-    //             {
-    //                 isTouchingWall = true;
-    //                 wallDirection = contact.normal.x > 0 ? -1 : 1; // 1 jika dinding di kanan, -1 jika di kiri
-    //                 return;
-    //             }
+    //         string baseAttackAnim = "";
+
+    //         if (!isGrounded)
+    //         {
+    //             baseAttackAnim = PLAYER_AIR_ATTACK;
     //         }
+    //         else if (Mathf.Abs(horizontalInput) > 0.1f)
+    //         {
+    //             baseAttackAnim = PLAYER_RUN_ATTACK;
+    //         }
+    //         else
+    //         {
+    //             baseAttackAnim = PLAYER_ATTACK;
+    //         }
+
+    //         string nextAttackAnim = baseAttackAnim + "_" + index_anim_attack;
+
+    //         ChangeAnimationState(nextAttackAnim, true);
+    //         Invoke(nameof(ResetAttack), timeToAttack);
+    //         return;
+    //     }
+
+    //     isAttacking = false;
+    //     index_anim_attack++;
+    //     if (index_anim_attack > 2)
+    //     {
+    //         index_anim_attack = 1;
     //     }
     // }
 
-    private void OnCollisionExit2D(Collision2D collision)
-    {
-        if (collision.gameObject.CompareTag("Ground"))
-        {
-            isTouchingWall = false;
-            wallDirection = 0;
-        }
-    }
 
 
-    // private void OnTriggerEnter2D(Collider2D collision)
-    // {
-    //     isGrounded = true;
-    //     animator.SetBool("IsJumping", false);
-    // }
+    // ATTRIBUT PLAYER
+    
+
 }
